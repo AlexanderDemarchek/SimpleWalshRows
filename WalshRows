@@ -1,0 +1,176 @@
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Collections;
+using System.IO;
+
+namespace ForLearning
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            F y = Function;
+
+            F impEn = ImpEnergy;
+
+            double En = Integ(impEn, 1000);
+            Console.WriteLine($"Энергия импульса:\n{En}\n");
+
+            double norm = Math.Sqrt(En);
+            Console.WriteLine($"Норма импульса:\n{norm}\n");
+
+            List<double> WalshFactors = new List<double>();
+            List<F> WalshFunctions = new List<F>();
+
+            Console.WriteLine("Введите количество коеффициентов Уолша(целое число):");
+
+            string stAmountFactors = Console.ReadLine();
+
+            int AmountFactors;
+
+            while (!Int32.TryParse(stAmountFactors, out AmountFactors))
+            {
+                Console.WriteLine("Введите целое число!");
+                stAmountFactors = Console.ReadLine();
+            }
+
+            
+
+            for(int i = 0; i < AmountFactors; i++)
+            {
+                F WalshFunction = ConvertArrToFunc(Walsh(i));
+                WalshFunctions.Add(WalshFunction);
+                double c = Integ((x) => WalshFunctions[i](x) * Function(x),100)/0.000002;
+                WalshFactors.Add(c);
+            }
+
+            StreamWriter stWalshX = new StreamWriter("WalshX.txt");
+            StreamWriter stWalshY = new StreamWriter("WalshY.txt");
+
+            StreamWriter stFuncX = new StreamWriter("FuncX.txt");
+            StreamWriter stFuncY = new StreamWriter("FuncY.txt");
+
+            Console.WriteLine();
+            double[] arr;
+            double x0 = -0.000001;
+            double step = 0.000002 / 1000;
+            double f = 0;
+            
+            for (int i = 0; i <1000 ;i++)
+            {
+                f = 0;
+
+                for (int j = 0; j < WalshFactors.Count; j++)
+                {
+                    f += Math.Round(WalshFactors[j]) * WalshFunctions[j](x0);
+                }
+
+                stWalshY.WriteLine(f);
+                stWalshX.WriteLine(x0);
+
+                stFuncY.WriteLine(Math.Round(Function(x0)));
+                stFuncX.WriteLine(x0);
+
+                x0 += step;
+            }
+            stWalshX.Close();
+            stWalshY.Close();
+            stFuncX.Close();
+            stFuncY.Close();
+
+        }
+
+        public static int[] Walsh(int number) // number - номер функции Уолша
+        {
+            if(number == 0)  
+            {
+                return new int[] { 1 }; // нулевая функция уолша равна еденице на заданном интервале времени
+            }
+
+            int n = number / 2; // в C# при делении целочисленной переменной на число остаток отбрасывается, что нам и нужно
+            int p = number%2; // деление с остатком номера функции на 2 как раз дает нам значение p
+
+            int mainK = (int)Math.Pow(-1, n + p); // общий коеффициент перед рекуррентным выражением
+            int kSecondMember = (int)Math.Pow(-1, number + p); // коеффициент перед вторым членом рекуррентым выражением
+
+            /*
+             * Следующая строка кода использует средство языка C# - LINQ:
+             * Функция рекурсивно вызывает саму себя (пока номер функции не будет равен 0) - это первый член
+             * с помощью метода Concat объединяем со вторым членом рекуррентной формулы
+             * функция рекурсивно вызывает саму себя (пока номер функции не будет равен 0) и все члены возращаемого массива умножаются на kSecondMember - второй член
+             * все члены результирующего массива умножаются на общий коэффициент
+             * .ToArray - все что было до этого метода возвращает не совсем массив (перечисляемый тип IEnumerable), а данный метод преобразует его в полноценный массив
+             */
+
+            return Walsh(n).Concat(Walsh(n).Select(t => t* kSecondMember).Select(t => t * mainK)).ToArray();
+            
+        }
+
+
+        public static F ConvertArrToFunc(int[] arr, double begin = -0.000001, double end = 0.000001)
+        {
+            F function = delegate (double x)
+            {
+                if(x < begin || x > end)
+                {
+                    return 0;
+                }
+                double x0 = begin;
+                double step = (end - begin) / arr.Length;
+                
+
+                for(int i = 0; i < arr.Length; i++)
+                {
+                    if (x < x0 + step) return arr[i];
+                    x0 += step;
+                }
+                return arr[arr.Length - 1];
+            };
+
+            return function;
+        }
+
+        public delegate double F(double x);
+
+        public static double Integ(F y, int stepsAmount, double begin = -0.000001, double end = 0.000001) //численное интегрирование методом средних прямоугльников
+        {
+            double sum = 0;
+            double step = (end - begin) / stepsAmount;
+            double x0 = begin;
+            double x1 = begin + step;
+
+            for(int i = 0; i < stepsAmount; i++)
+            {
+                sum += y((x0 + x1) / 2) * step;
+                x0 = x1;
+                x1 += step;
+            }
+
+            return sum;
+        }
+
+        public static double Function(double x)
+        {
+            if(x > -0.000001 && x < 0)
+            {
+                return 100000000 * x + 100;
+            }
+            else if(x > 0 && x < 0.000001)
+            {
+                return -100000000 * x + 100;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        public static double ImpEnergy(double x)
+        {
+            return Function(x) * Function(x);
+        }
+
+    }
+}
+
